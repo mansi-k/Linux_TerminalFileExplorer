@@ -12,11 +12,11 @@
 
 using namespace std;
 
-#define escp 27
 unsigned int xcor = 1, ycor = 1;
 #define esc 27
 #define cls printf("%c[2J", esc)
-#define pos() printf("\033[%d;%df",xcor,ycor)
+#define cursor printf("\033[%d;%df",xcor,ycor)
+#define setcout(cx,cy) printf("\033[%d;%df",cx,cy)
 
 struct winsize terminal;
 unsigned int term_row;
@@ -28,6 +28,8 @@ stack<string> forward_stack;
 stack<string> back_stack;
 vector<dirent> cur_dirs;
 
-int list_files();
-void update_list(string);
-void travel(string);
+void list_files();
+void update_list();
+void travel();
+void set_termios();
+void reset_termios();
