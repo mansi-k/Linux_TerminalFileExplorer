@@ -51,6 +51,7 @@ int list_files() {
         to = cur_files.size() - 1;
     else
         to = term_row;
+    pos();
     update_list(fullpath);
     tcgetattr(fileno(stdin), &initialrsettings);
     newrsettings = initialrsettings;
@@ -74,7 +75,7 @@ void update_list(string fullpath) {
     xcor = 1;
     ycor = 1;
     cls;
-    pos();
+//    pos();
     cout << fullpath << endl;
     cout << left << setw(35) << "Name" << setw(10) << "Size" << setw(10) << "User" << setw(10) << "Group" << setw(15) << "Type/Perm" << setw(10) << "Modified" << endl;
     for (int i = from; i <= to; i++,findex++) {
@@ -120,7 +121,7 @@ void update_list(string fullpath) {
         cout << setw(25) << fmody << endl;
     }
 //    cout << findex << endl;
-    pos();
+//    pos();
     fflush(0);
 }
 
@@ -139,11 +140,11 @@ void travel(string fullpath) {
         }
         else if (xcor>1 && ch[0]==27 && ch[1]=='[' && ch[2]=='A') {
             xcor--;
-            pos();
+//            pos();
         }
-        else if(xcor<=(findex-from+1) && ch[0]==27 && ch[1]=='[' && ch[2]=='B') {
+        else if(xcor<=(to-from+2) && ch[0]==27 && ch[1]=='[' && ch[2]=='B') {
             xcor++;
-            pos();
+//            pos();
         }
         else if(ch[0]=='h') {
             findex = 0;
@@ -151,23 +152,24 @@ void travel(string fullpath) {
             list_files();
         }
         else if(ch[0]=='l') {
-            if(cur_files.size()>findex+1) {
-                from = findex;
-                if (cur_files.size()-findex+1 <= term_row)
-                    to = cur_files.size() - 1;
-                else
-                    to = term_row + findex;
+            if(cur_files.size() > to+1) {
+                from++;
+                to++;
+                pos();
                 update_list(fullpath);
+//                pos();
             }
         }
         else if(ch[0]=='k') {
-            if(findex > term_row+1) {
-                from -= term_row+1;
-                to -= to%(term_row+1)+1;
-                findex = from;
+            if(from > 0) {
+                from--;
+                to--;
+                pos();
                 update_list(fullpath);
+//                pos();
             }
         }
+        pos();
         fflush(0);
     }
 }
