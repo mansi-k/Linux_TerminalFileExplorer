@@ -2,8 +2,9 @@
 
 vector<string> cur_files;
 struct termios initialrsettings, newrsettings;
+struct stat f_stat;
 int exit_code = 0;
-int to, from, findex=0;
+int to, from;
 
 int main(int argc, char *argv[]) {
     char *tmp_cur_dir;
@@ -20,39 +21,18 @@ int main(int argc, char *argv[]) {
     }
     cur_dir = string(tmp_cur_dir);
     app_home = cur_dir;
-    exit_code = list_files();
+    set_termios();
+    list_files();
+    travel();
     xcor = 1;
     ycor = 1;
-    pos();
+    cursor;
     fflush(0);
     cls;
-    return exit_code;
+    return 0;
 }
 
-int list_files() {
-    ioctl(STDOUT_FILENO, TIOCGWINSZ, &terminal);
-    term_row = terminal.ws_row - 10;
-    term_col = terminal.ws_col;
-    struct dirent *dent;
-    DIR *cdir = opendir(cur_dir.c_str());
-    if (cdir == NULL) {
-        cout << "Directory cannot be opened" << endl;
-        return -1;
-    }
-    cur_files.clear();
-    while ((dent = readdir(cdir)) != NULL) {
-        cur_files.push_back(string(dent->d_name));
-    }
-    sort(cur_files.begin(),cur_files.end());
-    string fullpath = cur_dir;
-    findex = 0;
-    from = cur_window;
-    if (cur_files.size() <= term_row)
-        to = cur_files.size() - 1;
-    else
-        to = term_row;
-    pos();
-    update_list(fullpath);
+void set_termios() {
     tcgetattr(fileno(stdin), &initialrsettings);
     newrsettings = initialrsettings;
     newrsettings.c_lflag &= ~ICANON;
@@ -61,28 +41,49 @@ int list_files() {
     {
         fprintf(stderr, "Could not set attributes\n");
     }
-    pos();
-    fflush(0);
-    travel(fullpath);
-    return 0;
 }
 
-void update_list(string fullpath) {
-    struct stat f_stat;
+void list_files() {
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &terminal);
+    term_row = terminal.ws_row - 10;
+    term_col = terminal.ws_col;
+    struct dirent *dent;
+    DIR *cdir = opendir(cur_dir.c_str());
+    if (cdir == NULL) {
+        cout << "Directory cannot be opened" << endl;
+        return;
+    }
+    cur_files.clear();
+    while ((dent = readdir(cdir)) != NULL) {
+        cur_files.push_back(string(dent->d_name));
+    }
+    sort(cur_files.begin(),cur_files.end());
+    from = cur_window;
+    if (cur_files.size() <= term_row)
+        to = cur_files.size() - 1;
+    else
+        to = term_row;
+    cursor;
+    update_list();
+    cursor;
+    fflush(0);
+}
+
+void update_list() {
     string cur_fpath, fname, fperm, ftype, fmody, fuser, fgrp;
     long long fsize;
     char szu='B', ftyp='-';
     xcor = 1;
     ycor = 1;
     cls;
-//    pos();
-    cout << fullpath << endl;
+    cursor;
+    cout << cur_dir << endl;
     cout << left << setw(35) << "Name" << setw(10) << "Size" << setw(10) << "User" << setw(10) << "Group" << setw(15) << "Type/Perm" << setw(10) << "Modified" << endl;
-    for (int i = from; i <= to; i++,findex++) {
+    for (int i = from; i <= to; i++) {
         szu='B';
         ftyp='-';
         fperm = "";
-        cur_fpath = fullpath + "/" + cur_files[i];
+        cur_fpath = cur_dir + "/" + cur_files[i];
         stat(cur_fpath.c_str(),&f_stat);
         fname = cur_files[i];
         cout << left << setw(35) << fname;
@@ -120,12 +121,12 @@ void update_list(string fullpath) {
         fmody = string(ctime(&f_stat.st_mtime)).substr(0,24);
         cout << setw(25) << fmody << endl;
     }
-//    cout << findex << endl;
-//    pos();
-    fflush(0);
+    setcout(term_row+6,1);
+    cout << "***** NORMAL MODE *****" << endl;
+    cursor;
 }
 
-void travel(string fullpath) {
+void travel() {
     while(1) {
         char ch[3] = { 0 };
         read(STDIN_FILENO, ch, 3);
@@ -133,43 +134,89 @@ void travel(string fullpath) {
             tcsetattr(fileno(stdin), TCSANOW, &initialrsettings);
             xcor = 1;
             ycor = 1;
-            pos();
+            cursor;
             fflush(0);
             cls;
             exit(0);
         }
-        else if (xcor>1 && ch[0]==27 && ch[1]=='[' && ch[2]=='A') {
+        else if (xcor>1 && ch[0]==27 && ch[1]=='[' && ch[2]=='A') { //up
             xcor--;
-//            pos();
         }
-        else if(xcor<=(to-from+2) && ch[0]==27 && ch[1]=='[' && ch[2]=='B') {
+        else if(xcor<=(to-from+2) && ch[0]==27 && ch[1]=='[' && ch[2]=='B') { //down
             xcor++;
-//            pos();
-        }
-        else if(ch[0]=='h') {
-            findex = 0;
-            cur_dir = app_home;
-            list_files();
         }
         else if(ch[0]=='l') {
             if(cur_files.size() > to+1) {
                 from++;
                 to++;
-                pos();
-                update_list(fullpath);
-//                pos();
+                update_list();
             }
         }
         else if(ch[0]=='k') {
             if(from > 0) {
                 from--;
                 to--;
-                pos();
-                update_list(fullpath);
-//                pos();
+                update_list();
             }
         }
-        pos();
+        else if (ch[0]==27 && ch[1]=='[' && ch[2]=='D') { //left
+            if(!back_stack.empty() && back_stack.top()!=cur_dir) {
+                forward_stack.push(cur_dir);
+                cur_dir = back_stack.top();
+                if(back_stack.size()>1)
+                    back_stack.pop();
+                list_files();
+            }
+        }
+        else if (ch[0]==27 && ch[1]=='[' && ch[2]=='C') { //right
+            if(!forward_stack.empty()) {
+                back_stack.push(cur_dir);
+                cur_dir = forward_stack.top();
+                forward_stack.pop();
+                list_files();
+            }
+        }
+        else if(xcor>2 && ch[0]=='\n') {
+            string fpath = cur_dir+cur_files[from+xcor-3];
+            stat(fpath.c_str(),&f_stat);
+            if((f_stat.st_mode & S_IFMT) & S_IFDIR){
+                if(cur_files[from+xcor-3] == ".")
+                    continue;
+                else if(cur_files[from+xcor-3] == "..") {
+                    if(back_stack.empty() || back_stack.top() != cur_dir)
+                        back_stack.push(cur_dir);
+                    int lidx = cur_dir.find_last_of('/',cur_dir.length()-2);
+                    cur_dir = cur_dir.substr(0,lidx)+"/";
+                    list_files();
+                }
+                else {
+                    if(back_stack.empty() || back_stack.top() != cur_dir)
+                        back_stack.push(cur_dir);
+                    cur_dir = fpath + "/";
+                    list_files();
+                }
+                while(!forward_stack.empty())
+                    forward_stack.pop();
+            }
+        }
+        else if(ch[0] == 127) { //backspace
+            if(back_stack.empty() || back_stack.top() != cur_dir)
+                back_stack.push(cur_dir);
+            int lidx = cur_dir.find_last_of('/',cur_dir.length()-2);
+            cur_dir = cur_dir.substr(0,lidx)+"/";
+            while(!forward_stack.empty())
+                forward_stack.pop();
+            list_files();
+        }
+        else if(ch[0]=='h') {
+            if(back_stack.empty() || back_stack.top() != cur_dir)
+                back_stack.push(cur_dir);
+            cur_dir = app_home;
+            while(!forward_stack.empty())
+                forward_stack.pop();
+            list_files();
+        }
+        cursor;
         fflush(0);
     }
 }
