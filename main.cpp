@@ -67,6 +67,7 @@ void list_files() {
     update_list();
     cursor;
     fflush(0);
+//    travel(fullpath);
 }
 
 void update_list() {
@@ -122,101 +123,163 @@ void update_list() {
         cout << setw(25) << fmody << endl;
     }
     setcout(term_row+6,1);
-    cout << "***** NORMAL MODE *****" << endl;
+    if(!cmd_mode)
+        cout << "***** NORMAL MODE *****" << endl;
+    else
+        cout << "***** COMMAND MODE *****" << endl;
     cursor;
 }
 
 void travel() {
     while(1) {
-        char ch[3] = { 0 };
-        read(STDIN_FILENO, ch, 3);
-        if(ch[0] == 'q') {
-            tcsetattr(fileno(stdin), TCSANOW, &initialrsettings);
+        if(!cmd_mode) {
+            char ch[3] = {0};
+            read(STDIN_FILENO, ch, 3);
+            if (ch[0] == 'e') {
+                tcsetattr(fileno(stdin), TCSANOW, &initialrsettings);
+                xcor = 1;
+                ycor = 1;
+                cursor;
+                fflush(0);
+                cls;
+                exit(0);
+            }
+            else if (xcor > 1 && ch[0] == 27 && ch[1] == '[' && ch[2] == 'A') { //up
+                xcor--;
+            }
+            else if (xcor <= (to - from + 2) && ch[0] == 27 && ch[1] == '[' && ch[2] == 'B') { //down
+                xcor++;
+            }
+            else if (ch[0] == 'l') {
+                if (cur_files.size() > to + 1) {
+                    from++;
+                    to++;
+                    update_list();
+                }
+            }
+            else if (ch[0] == 'k') {
+                if (from > 0) {
+                    from--;
+                    to--;
+                    update_list();
+                }
+            }
+            else if (ch[0] == 27 && ch[1] == '[' && ch[2] == 'D') { //left
+                if (!back_stack.empty() && back_stack.top() != cur_dir) {
+                    forward_stack.push(cur_dir);
+                    cur_dir = back_stack.top();
+                    if (back_stack.size() > 1)
+                        back_stack.pop();
+                    list_files();
+                }
+            }
+            else if (ch[0] == 27 && ch[1] == '[' && ch[2] == 'C') {
+                if (!forward_stack.empty()) {
+                    back_stack.push(cur_dir);
+                    cur_dir = forward_stack.top();
+                    forward_stack.pop();
+                    list_files();
+                }
+            }
+            else if (xcor > 2 && ch[0] == '\n') {
+                string fpath = cur_dir + cur_files[from + xcor - 3];
+                stat(fpath.c_str(), &f_stat);
+                if ((f_stat.st_mode & S_IFMT) & S_IFDIR) {
+                    if (cur_files[from + xcor - 3] == ".")
+                        continue;
+                    else if (cur_files[from + xcor - 3] == "..") {
+                        if (back_stack.empty() || back_stack.top() != cur_dir)
+                            back_stack.push(cur_dir);
+                        int lidx = cur_dir.find_last_of('/', cur_dir.length() - 2);
+                        cur_dir = cur_dir.substr(0, lidx) + "/";
+                        list_files();
+                    } else {
+                        if (back_stack.empty() || back_stack.top() != cur_dir)
+                            back_stack.push(cur_dir);
+                        cur_dir = fpath + "/";
+                        list_files();
+                    }
+                    while (!forward_stack.empty())
+                        forward_stack.pop();
+                } else {
+                    pid_t pid = fork();
+                    if (pid == 0) {
+                    close(2);
+                    execlp("vi", "vi", fpath.c_str(), NULL);
+//                    execlp("xdg-open", "xdg-open", fpath.c_str(), NULL);
+//                    tcsetattr(fileno(stdin), TCSANOW, &initialrsettings);
+//                    execlp("vi", "vi", fpath.c_str(), NULL);
+//                    execv(fpath.c_str(),"vi");
+//                    set_termios();
+                        exit(0);
+                    }
+                    int status;
+                    waitpid(pid, &status, 0);
+                    while(!WIFEXITED(status))
+                        continue;
+                }
+            }
+            else if (ch[0] == 127) { //backspace
+                if (back_stack.empty() || back_stack.top() != cur_dir)
+                    back_stack.push(cur_dir);
+                int lidx = cur_dir.find_last_of('/', cur_dir.length() - 2);
+                cur_dir = cur_dir.substr(0, lidx) + "/";
+                while (!forward_stack.empty())
+                    forward_stack.pop();
+                list_files();
+            }
+            else if (ch[0] == 'h') {
+                if (back_stack.empty() || back_stack.top() != cur_dir)
+                    back_stack.push(cur_dir);
+                cur_dir = app_home;
+                while (!forward_stack.empty())
+                    forward_stack.pop();
+                list_files();
+            }
+            else if (ch[0] == 58) { //:
+                command_mode();
+            }
+            cursor;
+            fflush(0);
+        }
+        else {
+
+        }
+    }
+}
+
+void command_mode() {
+    cmd_mode = true;
+//    newrsettings.c_lflag &= ECHO;
+//    tcsetattr(fileno(stdin), TCSAFLUSH, &newrsettings);
+    tcsetattr(fileno(stdin), TCSANOW, &initialrsettings);
+    setcout(term_row+6,1);
+    cout << "***** COMMAND MODE *****" << endl;
+    xcor = term_row+7;
+    cursor;
+    fflush(0);
+    char c;
+    string input="";
+    while(c = getchar()) {
+        input += c;
+        if(c == 033) {
+            setcout(term_row+6,1);
+//            newrsettings.c_lflag &= ~ECHO;
+//            tcsetattr(fileno(stdin), TCSAFLUSH, &newrsettings);
+            set_termios();
+            cmd_mode = false;
+            cout << "***** NORMAL MODE *****" << endl;
             xcor = 1;
             ycor = 1;
             cursor;
             fflush(0);
-            cls;
-            exit(0);
+            return;
         }
-        else if (xcor>1 && ch[0]==27 && ch[1]=='[' && ch[2]=='A') { //up
-            xcor--;
+        if(c=='\n') {
+            setcout(term_row + 8, 1);
+            cout << input;
         }
-        else if(xcor<=(to-from+2) && ch[0]==27 && ch[1]=='[' && ch[2]=='B') { //down
-            xcor++;
-        }
-        else if(ch[0]=='l') {
-            if(cur_files.size() > to+1) {
-                from++;
-                to++;
-                update_list();
-            }
-        }
-        else if(ch[0]=='k') {
-            if(from > 0) {
-                from--;
-                to--;
-                update_list();
-            }
-        }
-        else if (ch[0]==27 && ch[1]=='[' && ch[2]=='D') { //left
-            if(!back_stack.empty() && back_stack.top()!=cur_dir) {
-                forward_stack.push(cur_dir);
-                cur_dir = back_stack.top();
-                if(back_stack.size()>1)
-                    back_stack.pop();
-                list_files();
-            }
-        }
-        else if (ch[0]==27 && ch[1]=='[' && ch[2]=='C') { //right
-            if(!forward_stack.empty()) {
-                back_stack.push(cur_dir);
-                cur_dir = forward_stack.top();
-                forward_stack.pop();
-                list_files();
-            }
-        }
-        else if(xcor>2 && ch[0]=='\n') {
-            string fpath = cur_dir+cur_files[from+xcor-3];
-            stat(fpath.c_str(),&f_stat);
-            if((f_stat.st_mode & S_IFMT) & S_IFDIR){
-                if(cur_files[from+xcor-3] == ".")
-                    continue;
-                else if(cur_files[from+xcor-3] == "..") {
-                    if(back_stack.empty() || back_stack.top() != cur_dir)
-                        back_stack.push(cur_dir);
-                    int lidx = cur_dir.find_last_of('/',cur_dir.length()-2);
-                    cur_dir = cur_dir.substr(0,lidx)+"/";
-                    list_files();
-                }
-                else {
-                    if(back_stack.empty() || back_stack.top() != cur_dir)
-                        back_stack.push(cur_dir);
-                    cur_dir = fpath + "/";
-                    list_files();
-                }
-                while(!forward_stack.empty())
-                    forward_stack.pop();
-            }
-        }
-        else if(ch[0] == 127) { //backspace
-            if(back_stack.empty() || back_stack.top() != cur_dir)
-                back_stack.push(cur_dir);
-            int lidx = cur_dir.find_last_of('/',cur_dir.length()-2);
-            cur_dir = cur_dir.substr(0,lidx)+"/";
-            while(!forward_stack.empty())
-                forward_stack.pop();
-            list_files();
-        }
-        else if(ch[0]=='h') {
-            if(back_stack.empty() || back_stack.top() != cur_dir)
-                back_stack.push(cur_dir);
-            cur_dir = app_home;
-            while(!forward_stack.empty())
-                forward_stack.pop();
-            list_files();
-        }
-        cursor;
-        fflush(0);
     }
+//    setcout(term_row+3,1);
+//    cout << "mnsi";
 }
