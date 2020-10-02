@@ -45,6 +45,8 @@ void set_termios() {
 
 void list_files() {
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &terminal);
+    scr_rows = terminal.ws_row;
+    scr_cols = terminal.ws_col;
     term_row = terminal.ws_row - 10;
     term_col = terminal.ws_col;
     struct dirent *dent;
@@ -201,16 +203,12 @@ void travel() {
                     }
                     while (!forward_stack.empty())
                         forward_stack.pop();
-                } else {
+                }
+                else {
                     pid_t pid = fork();
                     if (pid == 0) {
-                    close(2);
-                    execlp("vi", "vi", fpath.c_str(), NULL);
-//                    execlp("xdg-open", "xdg-open", fpath.c_str(), NULL);
-//                    tcsetattr(fileno(stdin), TCSANOW, &initialrsettings);
-//                    execlp("vi", "vi", fpath.c_str(), NULL);
-//                    execv(fpath.c_str(),"vi");
-//                    set_termios();
+                        close(2);
+                        execlp("vi", "vi", fpath.c_str(), NULL);
                         exit(0);
                     }
                     int status;
@@ -238,6 +236,10 @@ void travel() {
             }
             else if (ch[0] == 58) { //:
                 command_mode();
+                xcor = 1;
+                ycor = 1;
+                setcout(term_row+6,1);
+                cout << "***** NORMAL MODE *****" << endl;
             }
             cursor;
             fflush(0);
@@ -249,37 +251,67 @@ void travel() {
 }
 
 void command_mode() {
-    cmd_mode = true;
-//    newrsettings.c_lflag &= ECHO;
-//    tcsetattr(fileno(stdin), TCSAFLUSH, &newrsettings);
-    tcsetattr(fileno(stdin), TCSANOW, &initialrsettings);
     setcout(term_row+6,1);
     cout << "***** COMMAND MODE *****" << endl;
     xcor = term_row+7;
+    while(xcor<=scr_rows) {
+        cursor;
+        clr_line;
+        xcor++;
+    }
+    xcor = term_row+7;
     cursor;
+    int cmdstx = xcor;
     fflush(0);
-    char c;
-    string input="";
-    while(c = getchar()) {
-        input += c;
-        if(c == 033) {
-            setcout(term_row+6,1);
-//            newrsettings.c_lflag &= ~ECHO;
-//            tcsetattr(fileno(stdin), TCSAFLUSH, &newrsettings);
-            set_termios();
-            cmd_mode = false;
-            cout << "***** NORMAL MODE *****" << endl;
-            xcor = 1;
-            ycor = 1;
-            cursor;
-            fflush(0);
+    char ipch;
+    bool cmplt = false;
+    string input;
+    while(1) {
+        ipch = getchar();
+        if(ipch == 27) {
+//            while(xcor>=cmdstx) {
+//                cursor;
+//                clr_line;
+//                xcor--;
+//            }
             return;
         }
-        if(c=='\n') {
-            setcout(term_row + 8, 1);
+        input += ipch;
+        if(ipch == 10) { //enter
+            cmplt = true;
+            xcor++;
+//            ycor=1;
+            cursor;
+//            cout << "command = " << input;
+            execute_cmd(input);
+            input = "";
+        }
+        else if(ipch == 127) {
+            input = input.substr(0,input.length()-2);
+            cursor;
+            clr_line;
             cout << input;
         }
+        else {
+            if(cmplt) {
+                while(xcor>=cmdstx) {
+                    cursor;
+                    clr_line;
+                    xcor--;
+                }
+                cmplt = false;
+                xcor++;
+//                ycor = 1;
+            }
+//            cursor;
+            cout << ipch;
+//            ycor++;
+        }
+
     }
-//    setcout(term_row+3,1);
-//    cout << "mnsi";
 }
+
+void execute_cmd(string input) {
+
+}
+
