@@ -20,6 +20,8 @@ int main(int argc, char *argv[]) {
         cout << "Argument is invalid" << endl;
     }
     cur_dir = string(tmp_cur_dir);
+    if(cur_dir[cur_dir.length()-1]!='/')
+        cur_dir += '/';
     app_home = cur_dir;
     set_termios();
     list_files();
@@ -86,7 +88,7 @@ void update_list() {
         szu='B';
         ftyp='-';
         fperm = "";
-        cur_fpath = cur_dir + "/" + cur_files[i];
+        cur_fpath = cur_dir + cur_files[i];
         stat(cur_fpath.c_str(),&f_stat);
         fname = cur_files[i];
         cout << left << setw(35) << fname;
@@ -269,30 +271,39 @@ void command_mode() {
     while(1) {
         ipch = getchar();
         if(ipch == 27) {
-//            while(xcor>=cmdstx) {
-//                cursor;
-//                clr_line;
-//                xcor--;
-//            }
             return;
         }
-        input += ipch;
+
         if(ipch == 10) { //enter
-            cmplt = true;
-            xcor++;
+            if(input=="") {
+                cout << "inif";
+                while(xcor>=cmdstx) {
+                    cursor;
+                    clr_line;
+                    xcor--;
+                }
+                xcor++;
+//                cout << "here";
+            }
+            else {
+                xcor++;
 //            ycor=1;
-            cursor;
+                cursor;
 //            cout << "command = " << input;
-            execute_cmd(input);
-            input = "";
+                cmplt = true;
+                execute_cmd(input);
+                input = "";
+//                cout << "cameback";
+            }
         }
-        else if(ipch == 127) {
-            input = input.substr(0,input.length()-2);
+        else if(ipch == 127) { //backspace
+            input = input.substr(0,input.length()-1);
             cursor;
             clr_line;
             cout << input;
         }
         else {
+            input += ipch;
             if(cmplt) {
                 while(xcor>=cmdstx) {
                     cursor;
@@ -312,6 +323,98 @@ void command_mode() {
 }
 
 void execute_cmd(string input) {
-
+//    cout << input;
+    vector<string> cmd_words;
+    string fullcmd = input;
+    string word;
+    string status;
+    istringstream iss(input);
+    for(string s; iss >> s; ) {
+        cmd_words.push_back(s);
+    }
+    if(cmd_words[0] == "delete_dir") {
+//        status = cmd_delete_dir(cmd_words);
+    }
+    else if(cmd_words[0] == "delete_file") {
+        status = cmd_delete_file(cmd_words);
+    }
+    else if(cmd_words[0] == "create_file") {
+        status = cmd_create_file(cmd_words);
+    }
+    else if(cmd_words[0] == "create_dir") {
+        status = cmd_create_dir(cmd_words);
+    }
+    else if(cmd_words[0] == "rename") {
+        status = cmd_rename(cmd_words);
+    }
+    if(status != "") {
+        cout << status;
+    }
 }
+
+string cmd_delete_file(vector<string> cw_vect) {
+    string ret="Files deleted!", fpath;
+    for(int j=1;j<cw_vect.size();j++) {
+        fpath = create_fpath(cw_vect[j],"");
+        int status = remove(fpath.c_str());
+        if(status != 0) {
+//            ret = "Failed! " + fpath;
+            perror("\n");
+            ret = "";
+        }
+    }
+    return ret;
+}
+
+string cmd_create_file(vector<string> cw_vect) {
+    string dstn = cw_vect[cw_vect.size()-1];
+    int fdi;
+    string ret = "Files created!";
+    string fpath;
+    for(int j=1;j<cw_vect.size()-1;j++) {
+        fpath = create_fpath(cw_vect[j],dstn);
+        fdi = open(fpath.c_str(),O_RDONLY | O_CREAT,S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH );
+        if(fdi < 0) {
+//            ret = "Failed!";
+            perror("\n");
+            ret = "";
+        }
+        else
+            close(fdi);
+    }
+    return ret;
+}
+
+string cmd_create_dir(vector<string> cw_vect) {
+    string dstn = cw_vect[cw_vect.size()-1];
+    int status;
+    string ret = "Directories created!";
+    string dpath;
+    for(int j=1;j<cw_vect.size()-1;j++) {
+        dpath = create_fpath(cw_vect[j],dstn);
+        status = mkdir(dpath.c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+        if(status != 0) {
+//            ret = "Failed!";
+            perror("\n");
+            ret = "";
+        }
+    }
+    return ret;
+}
+
+string cmd_rename(vector<string> cw_vect) {
+    int status;
+    string fold, fnew;
+    string ret = "Renamed!";
+    fold = create_fpath("",cw_vect[1]);
+    fnew = create_fpath("",cw_vect[2]);
+    status = rename(fold.c_str(),fnew.c_str());
+    if(status!=0) {
+        perror("\n");
+        ret = "";
+    }
+    return ret;
+}
+
+
 
