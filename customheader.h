@@ -9,6 +9,7 @@
 #include <grp.h>
 #include <dirent.h>
 #include <sys/ioctl.h>
+#include <sys/wait.h>
 
 using namespace std;
 
@@ -18,6 +19,7 @@ unsigned int xcor = 1, ycor = 1;
 #define cursor printf("\033[%d;%df",xcor,ycor)
 #define setcout(cx,cy) printf("\033[%d;%df",cx,cy)
 
+bool cmd_mode = false;
 struct winsize terminal;
 unsigned int term_row;
 unsigned int term_col;
@@ -33,3 +35,4 @@ void update_list();
 void travel();
 void set_termios();
 void reset_termios();
+void command_mode();
