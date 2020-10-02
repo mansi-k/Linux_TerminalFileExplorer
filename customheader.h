@@ -10,6 +10,7 @@
 #include <dirent.h>
 #include <sys/ioctl.h>
 #include <sys/wait.h>
+#include <fcntl.h>
 
 using namespace std;
 
@@ -40,3 +41,33 @@ void set_termios();
 void reset_termios();
 void command_mode();
 void execute_cmd(string);
+string cmd_delete_dir(vector<string>);
+string cmd_delete_file(vector<string>);
+string cmd_create_file(vector<string>);
+string cmd_create_dir(vector<string>);
+string cmd_rename(vector<string>);
+
+string create_fpath(string fp, string dp) {
+    string fpath = "";
+    if(dp=="") {
+        fpath = app_home + fp;
+//        cout << 4;
+    }
+    else if(dp[0]=='/') {
+        fpath = app_home + dp.substr(1,dp.length()-1) + "/" + fp;
+//        cout << 1;
+    }
+    else if(dp[0]=='.') {
+        fpath = app_home + fp;
+//        cout << 2;
+    }
+    else if(dp[0]=='~') {
+        fpath = app_home + dp.substr(1,dp.length()-1) + "/" + fp;
+//        cout << 3;
+    }
+    else {
+        fpath = app_home + dp + fp;
+//        cout << 5;
+    }
+    return fpath;
+}
