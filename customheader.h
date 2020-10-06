@@ -38,14 +38,16 @@ void list_files();
 void update_list();
 void travel();
 void set_termios();
-void reset_termios();
 void command_mode();
 void execute_cmd(string);
-string cmd_delete_dir(vector<string>);
+string cmd_delete_dir(string,struct stat);
 string cmd_delete_file(vector<string>);
 string cmd_create_file(vector<string>);
 string cmd_create_dir(vector<string>);
 string cmd_rename(vector<string>);
+string cmd_copy(vector<string>);
+string cmd_copy_dir(string,string);
+string cmd_move(vector<string>);
 
 string create_fpath(string fp, string dp) {
     string fpath = "";
