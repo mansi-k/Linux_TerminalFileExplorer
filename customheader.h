@@ -40,7 +40,7 @@ void travel();
 void set_termios();
 void command_mode();
 void execute_cmd(string);
-string cmd_delete_dir(string,struct stat);
+string cmd_delete_dir(string);
 string cmd_delete_file(vector<string>);
 string cmd_create_file(vector<string>);
 string cmd_create_dir(vector<string>);
