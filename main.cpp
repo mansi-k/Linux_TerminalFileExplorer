@@ -69,6 +69,7 @@ void list_files() {
         to = term_row;
     cursor;
     update_list();
+    closedir(cdir);
     cursor;
     fflush(0);
 //    travel(fullpath);
@@ -333,7 +334,7 @@ void execute_cmd(string input) {
         cmd_words.push_back(s);
     }
     if(cmd_words[0] == "delete_dir") {
-//        status = cmd_delete_dir(cmd_words);
+        status = cmd_delete_file(cmd_words);
     }
     else if(cmd_words[0] == "delete_file") {
         status = cmd_delete_file(cmd_words);
@@ -347,6 +348,12 @@ void execute_cmd(string input) {
     else if(cmd_words[0] == "rename") {
         status = cmd_rename(cmd_words);
     }
+    else if(cmd_words[0] == "copy") {
+        status = cmd_copy(cmd_words);
+    }
+    else if(cmd_words[0] == "move") {
+        status = cmd_move(cmd_words);
+    }
     if(status != "") {
         cout << status;
     }
@@ -354,13 +361,48 @@ void execute_cmd(string input) {
 
 string cmd_delete_file(vector<string> cw_vect) {
     string ret="Files deleted!", fpath;
+    struct stat sfst;
     for(int j=1;j<cw_vect.size();j++) {
         fpath = create_fpath(cw_vect[j],"");
+        stat(fpath.c_str(), &sfst);
+        if ((sfst.st_mode & S_IFMT) & S_IFDIR) {
+            ret = cmd_delete_dir(fpath);
+            continue;
+        }
         int status = remove(fpath.c_str());
         if(status != 0) {
 //            ret = "Failed! " + fpath;
             perror("\n");
             ret = "";
+        }
+    }
+    return ret;
+}
+
+string cmd_delete_dir(string ddir) {
+    string ret = "Files deleted!";
+    string dpath;
+    struct dirent *dent;
+    struct stat sfst;
+    DIR *cdir = opendir(ddir.c_str());
+    if (cdir==NULL) {
+        perror("");
+        ret = "";
+        return ret;
+    }
+    while((dent = readdir(cdir)) != NULL) {
+        if (string(dent->d_name) != "." && string(dent->d_name) != "..") {
+            dpath = ddir + "/" + dent->d_name;
+            stat(dpath.c_str(), &sfst);
+            if ((sfst.st_mode & S_IFMT) & S_IFDIR) {
+                cmd_delete_dir(dpath);
+                continue;
+            }
+            int status = remove(dpath.c_str());
+            if(status != 0) {
+                perror("\n");
+                ret = "";
+            }
         }
     }
     return ret;
@@ -415,6 +457,101 @@ string cmd_rename(vector<string> cw_vect) {
     }
     return ret;
 }
+
+string cmd_copy(vector<string> cw_vect) {
+    int sfdi, dfdi, rblock, sch1, sch2;
+    string ret = "Files copied!";
+    string spath, dpath;
+    char chunk[1024];
+    struct stat sfst;
+    for(int j=1;j<cw_vect.size()-1;j++) {
+        dpath = create_fpath(cw_vect[j],cw_vect[cw_vect.size()-1]);
+        spath = create_fpath(cw_vect[j],"");
+        stat(spath.c_str(), &sfst);
+        if ((sfst.st_mode & S_IFMT) & S_IFDIR) {
+            ret = cmd_copy_dir(spath,dpath);
+            continue;
+        }
+        else {
+            sfdi = open(spath.c_str(), O_RDONLY);
+            dfdi = open(dpath.c_str(), O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+            while ((rblock = read(sfdi, chunk, sizeof(chunk))) > 0) {
+                write(dfdi, chunk, rblock);
+            }
+            sch1 = chown(dpath.c_str(), sfst.st_uid, sfst.st_gid);
+            sch2 = chmod(dpath.c_str(), sfst.st_mode);
+            if (sfdi < 0 || dfdi < 0 || sch1 != 0 || sch2 != 0) {
+                perror("");
+                ret = "";
+            }
+            close(sfdi);
+            close(dfdi);
+        }
+    }
+    return ret;
+}
+
+string cmd_copy_dir(string sdir,string ddir) {
+    int sfdi, dfdi, rblock, sch1, sch2;
+    string ret = "Files copied!";
+    string spath,dpath;
+    char chunk[1024];
+    struct dirent *dent;
+    struct stat sfst;
+    DIR *cdir = opendir(sdir.c_str());
+    DIR *dsdr = opendir(ddir.c_str());
+    if (cdir==NULL) {
+        perror("");
+        ret = "";
+        return ret;
+    }
+    if(dsdr==NULL) {
+        int mks = mkdir(ddir.c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+        if(mks!=0) {
+            perror("");
+            ret = "";
+            return ret;
+        }
+    }
+    while((dent = readdir(cdir)) != NULL) {
+        if(string(dent->d_name)!="." && string(dent->d_name)!="..") {
+            dpath = ddir + "/" + dent->d_name;
+            spath = sdir + "/" + dent->d_name;
+            stat(spath.c_str(), &sfst);
+            if ((sfst.st_mode & S_IFMT) & S_IFDIR) {
+                cmd_copy_dir(spath,dpath);
+                continue;
+            } else {
+                sfdi = open(spath.c_str(), O_RDONLY);
+                dfdi = open(dpath.c_str(), O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+                while ((rblock = read(sfdi, chunk, sizeof(chunk))) > 0) {
+                    write(dfdi, chunk, rblock);
+                }
+                sch1 = chown(dpath.c_str(), sfst.st_uid, sfst.st_gid);
+                sch2 = chmod(dpath.c_str(), sfst.st_mode);
+                if (sfdi < 0 || dfdi < 0 || sch1 != 0 || sch2 != 0) {
+                    perror("");
+                    ret = "";
+                }
+                close(sfdi);
+                close(dfdi);
+            }
+        }
+    }
+    closedir(cdir);
+    closedir(dsdr);
+    return ret;
+}
+
+string cmd_move(vector<string> cw_vect) {
+
+}
+
+
+
+
+
+
 
 
 
