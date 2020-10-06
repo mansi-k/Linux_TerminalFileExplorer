@@ -54,7 +54,8 @@ void list_files() {
     struct dirent *dent;
     DIR *cdir = opendir(cur_dir.c_str());
     if (cdir == NULL) {
-        cout << "Directory cannot be opened" << endl;
+//        cout << "Directory cannot be opened" << endl;
+        perror("");
         return;
     }
     cur_files.clear();
@@ -367,7 +368,6 @@ string cmd_delete_file(vector<string> cw_vect) {
         stat(fpath.c_str(), &sfst);
         if ((sfst.st_mode & S_IFMT) & S_IFDIR) {
             ret = cmd_delete_dir(fpath);
-            continue;
         }
         int status = remove(fpath.c_str());
         if(status != 0) {
@@ -396,7 +396,6 @@ string cmd_delete_dir(string ddir) {
             stat(dpath.c_str(), &sfst);
             if ((sfst.st_mode & S_IFMT) & S_IFDIR) {
                 cmd_delete_dir(dpath);
-                continue;
             }
             int status = remove(dpath.c_str());
             if(status != 0) {
@@ -405,6 +404,7 @@ string cmd_delete_dir(string ddir) {
             }
         }
     }
+    closedir(cdir);
     return ret;
 }
 
@@ -544,7 +544,17 @@ string cmd_copy_dir(string sdir,string ddir) {
 }
 
 string cmd_move(vector<string> cw_vect) {
-
+    string ret = "Files moved!";
+    string st1,st2;
+    st1 = cmd_copy(cw_vect);
+    vector<string> cmdvec;
+    for(auto it=cw_vect.begin();it!=cw_vect.end()-1;it++) {
+        cmdvec.push_back(*it);
+    }
+    st2 = cmd_delete_file(cmdvec);
+    if(st1=="" || st2=="")
+        return "";
+    return ret;
 }
 
 
