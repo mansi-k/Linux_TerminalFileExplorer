@@ -239,7 +239,9 @@ void travel() {
                 list_files();
             }
             else if (ch[0] == 58) { //:
+                cmd_mode = 1;
                 command_mode();
+                cmd_mode = 0;
                 xcor = 1;
                 ycor = 1;
                 setcout(term_row+6,1);
@@ -278,24 +280,20 @@ void command_mode() {
 
         if(ipch == 10) { //enter
             if(input=="") {
-                cout << "inif";
                 while(xcor>=cmdstx) {
                     cursor;
                     clr_line;
                     xcor--;
                 }
                 xcor++;
-//                cout << "here";
             }
             else {
                 xcor++;
 //            ycor=1;
                 cursor;
-//            cout << "command = " << input;
                 cmplt = true;
                 execute_cmd(input);
                 input = "";
-//                cout << "cameback";
             }
         }
         else if(ipch == 127) { //backspace
@@ -357,6 +355,9 @@ void execute_cmd(string input) {
     }
     else if(cmd_words[0] == "search") {
         status = cmd_search(cmd_words);
+    }
+    else if(cmd_words[0] == "goto") {
+        cmd_goto(cmd_words);
     }
     if(status != "") {
         cout << status;
@@ -608,6 +609,22 @@ string cmd_search_dir(string srchdir, string tofind) {
         ret = "True";
         return ret;
     }
+}
+
+void cmd_goto(vector<string> cw_vect) {
+    string nfpath = app_home + cw_vect[1];
+    if(nfpath[nfpath.length()-1]!='/')
+        nfpath += "/";
+    if (back_stack.empty() || back_stack.top() != cur_dir)
+        back_stack.push(cur_dir);
+    cur_dir = nfpath;
+    while (!forward_stack.empty())
+        forward_stack.pop();
+    list_files();
+    xcor = term_row+7;
+    ycor = 1;
+    cursor;
+    fflush(0);
 }
 
 
