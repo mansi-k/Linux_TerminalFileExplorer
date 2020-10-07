@@ -50,6 +50,7 @@ string cmd_copy_dir(string,string);
 string cmd_move(vector<string>);
 string cmd_search(vector<string>);
 string cmd_search_dir(string,string);
+void cmd_goto(vector<string>);
 
 string create_fpath(string fp, string dp) {
     string fpath = "";
