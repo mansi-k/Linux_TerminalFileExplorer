@@ -245,7 +245,8 @@ void travel() {
                 xcor = 1;
                 ycor = 1;
                 setcout(term_row+6,1);
-                cout << "***** NORMAL MODE *****" << endl;
+                list_files();
+//                cout << "***** NORMAL MODE *****" << endl;
             }
             cursor;
             fflush(0);
@@ -438,6 +439,7 @@ string cmd_create_dir(vector<string> cw_vect) {
     string dpath;
     for(int j=1;j<cw_vect.size()-1;j++) {
         dpath = create_fpath(cw_vect[j],dstn);
+//        cout << dpath << endl;
         status = mkdir(dpath.c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
         if(status != 0) {
 //            ret = "Failed!";
@@ -613,18 +615,24 @@ string cmd_search_dir(string srchdir, string tofind) {
 
 void cmd_goto(vector<string> cw_vect) {
     string nfpath = app_home + cw_vect[1];
+    struct stat cdst;
     if(nfpath[nfpath.length()-1]!='/')
         nfpath += "/";
-    if (back_stack.empty() || back_stack.top() != cur_dir)
-        back_stack.push(cur_dir);
-    cur_dir = nfpath;
-    while (!forward_stack.empty())
-        forward_stack.pop();
-    list_files();
-    xcor = term_row+7;
-    ycor = 1;
-    cursor;
-    fflush(0);
+    if(stat(nfpath.c_str(),&cdst)!=-1) {
+        if (back_stack.empty() || back_stack.top() != cur_dir)
+            back_stack.push(cur_dir);
+        cur_dir = nfpath;
+        while (!forward_stack.empty())
+            forward_stack.pop();
+        list_files();
+        xcor = term_row + 7;
+        ycor = 1;
+        cursor;
+        fflush(0);
+    }
+    else {
+        perror("");
+    }
 }
 
 
