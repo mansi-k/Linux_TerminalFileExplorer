@@ -48,6 +48,8 @@ string cmd_rename(vector<string>);
 string cmd_copy(vector<string>);
 string cmd_copy_dir(string,string);
 string cmd_move(vector<string>);
+string cmd_search(vector<string>);
+string cmd_search_dir(string,string);
 
 string create_fpath(string fp, string dp) {
     string fpath = "";
