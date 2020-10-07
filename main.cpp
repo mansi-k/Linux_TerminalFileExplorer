@@ -355,6 +355,9 @@ void execute_cmd(string input) {
     else if(cmd_words[0] == "move") {
         status = cmd_move(cmd_words);
     }
+    else if(cmd_words[0] == "search") {
+        status = cmd_search(cmd_words);
+    }
     if(status != "") {
         cout << status;
     }
@@ -557,7 +560,55 @@ string cmd_move(vector<string> cw_vect) {
     return ret;
 }
 
+string cmd_search(vector<string> cw_vect) {
+    string ret = "False";
+    string st1,st2;
+    string fpath;
+    st1 = cmd_copy(cw_vect);
+    vector<string> cmdvec;
+    fpath = create_fpath(cw_vect[1],"");
+    struct stat fd;
+    if(stat(fpath.c_str(),&fd)==-1) {
+//        if ((fd.st_mode & S_IFMT) & S_IFDIR) {
+            string srchdir = app_home.substr(0,app_home.length()-1);
+            ret = cmd_search_dir(srchdir,cw_vect[1]);
+            return ret;
+//        }
+    }
+    else {
+        ret = "True";
+        return ret;
+    }
+}
 
+string cmd_search_dir(string srchdir, string tofind) {
+    string fpath = srchdir + "/" + tofind;
+//    cout << fpath << endl;
+    struct dirent *dent;
+    struct stat fd;
+    string curf;
+    string ret = "False";
+    if(stat(fpath.c_str(),&fd)==-1) {
+        DIR *cdir = opendir(srchdir.c_str());
+        while((dent = readdir(cdir)) != NULL) {
+            struct stat cdst;
+            if(string(dent->d_name)!="." && string(dent->d_name)!="..") {
+                curf = srchdir + "/" + dent->d_name;
+//                cout << "tosrch " << curf << endl;
+                stat(curf.c_str(),&cdst);
+                if ((cdst.st_mode & S_IFMT) & S_IFDIR) {
+                    ret = cmd_search_dir(curf, tofind);
+                }
+            }
+        }
+        closedir(cdir);
+        return ret;
+    }
+    else {
+        ret = "True";
+        return ret;
+    }
+}
 
 
 
