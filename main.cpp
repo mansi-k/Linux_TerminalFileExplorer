@@ -442,7 +442,6 @@ string cmd_create_dir(vector<string> cw_vect) {
 //        cout << dpath << endl;
         status = mkdir(dpath.c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
         if(status != 0) {
-//            ret = "Failed!";
             perror("\n");
             ret = "";
         }
