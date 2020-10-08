@@ -8,6 +8,7 @@ int to, from;
 
 int main(int argc, char *argv[]) {
     char *tmp_cur_dir;
+    signal(SIGWINCH, winsz_handler);
     if(argc == 2) {
         tmp_cur_dir = argv[1];
     }
@@ -129,10 +130,16 @@ void update_list() {
         cout << setw(25) << fmody << endl;
     }
     setcout(term_row+6,1);
-    if(!cmd_mode)
+    if(!cmd_mode) {
         cout << "***** NORMAL MODE *****" << endl;
-    else
+        xcor = 1;
+        ycor = 1;
+    }
+    else {
         cout << "***** COMMAND MODE *****" << endl;
+        xcor = term_row+7;
+        ycor = 1;
+    }
     cursor;
 }
 
@@ -212,13 +219,14 @@ void travel() {
                     pid_t pid = fork();
                     if (pid == 0) {
                         close(2);
-                        execlp("vi", "vi", fpath.c_str(), NULL);
+//                        execlp("vi", "vi", fpath.c_str(), NULL);
+                        execlp("xdg-open", "xdg-open", fpath.c_str(), NULL);
                         exit(0);
                     }
-                    int status;
-                    waitpid(pid, &status, 0);
-                    while(!WIFEXITED(status))
-                        continue;
+//                    int status;
+//                    waitpid(pid, &status, 0);
+//                    while(!WIFEXITED(status))
+//                        continue;
                 }
             }
             else if (ch[0] == 127) { //backspace
@@ -244,7 +252,7 @@ void travel() {
                 cmd_mode = 0;
                 xcor = 1;
                 ycor = 1;
-                setcout(term_row+6,1);
+//                setcout(term_row+6,1);
                 list_files();
 //                cout << "***** NORMAL MODE *****" << endl;
             }
@@ -255,6 +263,14 @@ void travel() {
 
         }
     }
+}
+
+void winsz_handler(int sig) {
+    xcor = 1;
+    ycor = 1;
+    cls;
+    list_files();
+    cursor;
 }
 
 void command_mode() {
@@ -369,7 +385,7 @@ string cmd_delete_file(vector<string> cw_vect) {
     string ret="Files deleted!", fpath;
     struct stat sfst;
     for(int j=1;j<cw_vect.size();j++) {
-        fpath = create_fpath(cw_vect[j],"");
+        fpath = app_home + trimpath(cw_vect[j]);
         stat(fpath.c_str(), &sfst);
         if ((sfst.st_mode & S_IFMT) & S_IFDIR) {
             ret = cmd_delete_dir(fpath);
@@ -391,7 +407,7 @@ string cmd_delete_dir(string ddir) {
     struct stat sfst;
     DIR *cdir = opendir(ddir.c_str());
     if (cdir==NULL) {
-        perror("");
+        perror("\n");
         ret = "";
         return ret;
     }
@@ -414,15 +430,14 @@ string cmd_delete_dir(string ddir) {
 }
 
 string cmd_create_file(vector<string> cw_vect) {
-    string dstn = cw_vect[cw_vect.size()-1];
+    string dstn = trimpath(cw_vect[cw_vect.size()-1]);
     int fdi;
     string ret = "Files created!";
     string fpath;
     for(int j=1;j<cw_vect.size()-1;j++) {
-        fpath = create_fpath(cw_vect[j],dstn);
+        fpath = app_home + dstn + "/" + trimpath(cw_vect[j]);
         fdi = open(fpath.c_str(),O_RDONLY | O_CREAT,S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH );
         if(fdi < 0) {
-//            ret = "Failed!";
             perror("\n");
             ret = "";
         }
@@ -433,13 +448,12 @@ string cmd_create_file(vector<string> cw_vect) {
 }
 
 string cmd_create_dir(vector<string> cw_vect) {
-    string dstn = cw_vect[cw_vect.size()-1];
+    string dstn = trimpath(cw_vect[cw_vect.size()-1]);
     int status;
     string ret = "Directories created!";
     string dpath;
     for(int j=1;j<cw_vect.size()-1;j++) {
-        dpath = create_fpath(cw_vect[j],dstn);
-//        cout << dpath << endl;
+        dpath = app_home + dstn + "/" + trimpath(cw_vect[j]);
         status = mkdir(dpath.c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
         if(status != 0) {
             perror("\n");
@@ -453,8 +467,9 @@ string cmd_rename(vector<string> cw_vect) {
     int status;
     string fold, fnew;
     string ret = "Renamed!";
-    fold = create_fpath("",cw_vect[1]);
-    fnew = create_fpath("",cw_vect[2]);
+    fold = app_home + trimpath(cw_vect[1]);
+    int lidx = fold.find_last_of('/', fold.length());
+    fnew = fold.substr(0,lidx+1) + trimpath(cw_vect[2]);
     status = rename(fold.c_str(),fnew.c_str());
     if(status!=0) {
         perror("\n");
@@ -470,8 +485,11 @@ string cmd_copy(vector<string> cw_vect) {
     char chunk[1024];
     struct stat sfst;
     for(int j=1;j<cw_vect.size()-1;j++) {
-        dpath = create_fpath(cw_vect[j],cw_vect[cw_vect.size()-1]);
-        spath = create_fpath(cw_vect[j],"");
+        string sfile = trimpath(cw_vect[j]);
+        spath = app_home + sfile;
+        int lidx = sfile.find_last_of('/', sfile.length());
+        dpath = app_home + trimpath(cw_vect[cw_vect.size()-1]) + "/" + sfile.substr(lidx+1,sfile.length()-lidx);
+//        cout << dpath << endl;
         stat(spath.c_str(), &sfst);
         if ((sfst.st_mode & S_IFMT) & S_IFDIR) {
             ret = cmd_copy_dir(spath,dpath);
@@ -568,13 +586,14 @@ string cmd_search(vector<string> cw_vect) {
     string fpath;
     st1 = cmd_copy(cw_vect);
     vector<string> cmdvec;
-    fpath = create_fpath(cw_vect[1],"");
+//    fpath = create_fpath(cw_vect[1],"");
+    fpath = app_home + trimpath(cw_vect[1]);
     struct stat fd;
     if(stat(fpath.c_str(),&fd)==-1) {
 //        if ((fd.st_mode & S_IFMT) & S_IFDIR) {
-            string srchdir = app_home.substr(0,app_home.length()-1);
-            ret = cmd_search_dir(srchdir,cw_vect[1]);
-            return ret;
+        string srchdir = app_home.substr(0,app_home.length()-1);
+        ret = cmd_search_dir(srchdir,trimpath(cw_vect[1]));
+        return ret;
 //        }
     }
     else {
@@ -596,7 +615,6 @@ string cmd_search_dir(string srchdir, string tofind) {
             struct stat cdst;
             if(string(dent->d_name)!="." && string(dent->d_name)!="..") {
                 curf = srchdir + "/" + dent->d_name;
-//                cout << "tosrch " << curf << endl;
                 stat(curf.c_str(),&cdst);
                 if ((cdst.st_mode & S_IFMT) & S_IFDIR) {
                     ret = cmd_search_dir(curf, tofind);
@@ -613,10 +631,9 @@ string cmd_search_dir(string srchdir, string tofind) {
 }
 
 void cmd_goto(vector<string> cw_vect) {
-    string nfpath = app_home + cw_vect[1];
+    string nfpath;
+    nfpath = app_home + trimpath(cw_vect[1]) + "/";
     struct stat cdst;
-    if(nfpath[nfpath.length()-1]!='/')
-        nfpath += "/";
     if(stat(nfpath.c_str(),&cdst)!=-1) {
         if (back_stack.empty() || back_stack.top() != cur_dir)
             back_stack.push(cur_dir);
@@ -633,10 +650,5 @@ void cmd_goto(vector<string> cw_vect) {
         perror("");
     }
 }
-
-
-
-
-
 
 
