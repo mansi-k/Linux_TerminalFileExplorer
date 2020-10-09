@@ -20,11 +20,14 @@ unsigned int xcor = 1, ycor = 1;
 #define cls printf("%c[2J", esc)
 #define cursor printf("\033[%d;%df",xcor,ycor)
 #define setcout(cx,cy) printf("\033[%d;%df",cx,cy)
-#define clr_line printf("%c[2K", 27)
+#define clr_line printf("%c[2K", esc)
 
+vector<string> cur_files;
+struct termios initsetg, newsetg;
+struct stat f_stat;
+int to, from;
 bool cmd_mode = false;
 struct winsize terminal;
-struct winsize rez_terminal;
 unsigned int term_row, scr_rows;
 unsigned int term_col, scr_cols;
 int cur_window = 0;
