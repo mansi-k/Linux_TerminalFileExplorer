@@ -1,10 +1,5 @@
 #include "customheader.h"
 
-vector<string> cur_files;
-struct termios initialrsettings, newrsettings;
-struct stat f_stat;
-int exit_code = 0;
-int to, from;
 
 int main(int argc, char *argv[]) {
     char *tmp_cur_dir;
@@ -36,11 +31,11 @@ int main(int argc, char *argv[]) {
 }
 
 void set_termios() {
-    tcgetattr(fileno(stdin), &initialrsettings);
-    newrsettings = initialrsettings;
-    newrsettings.c_lflag &= ~ICANON;
-    newrsettings.c_lflag &= ~ECHO;
-    if (tcsetattr(fileno(stdin), TCSAFLUSH, &newrsettings) != 0)
+    tcgetattr(fileno(stdin), &initsetg);
+    newsetg = initsetg;
+    newsetg.c_lflag &= ~ICANON;
+    newsetg.c_lflag &= ~ECHO;
+    if (tcsetattr(fileno(stdin), TCSAFLUSH, &newsetg) != 0)
     {
         fprintf(stderr, "Could not set attributes\n");
     }
@@ -86,7 +81,7 @@ void update_list() {
     cls;
     cursor;
     cout << cur_dir << endl;
-    cout << left << setw(35) << "Name" << setw(10) << "Size" << setw(10) << "User" << setw(10) << "Group" << setw(15) << "Type/Perm" << setw(10) << "Modified" << endl;
+    cout << left << setw(35) << "File Name" << setw(10) << "Size" << setw(10) << "User" << setw(10) << "Group" << setw(15) << "Type/Perm" << setw(10) << "Last Modified" << endl;
     for (int i = from; i <= to; i++) {
         szu='B';
         ftyp='-';
@@ -149,7 +144,7 @@ void travel() {
             char ch[3] = {0};
             read(STDIN_FILENO, ch, 3);
             if (ch[0] == 'e') {
-                tcsetattr(fileno(stdin), TCSANOW, &initialrsettings);
+                tcsetattr(fileno(stdin), TCSANOW, &initsetg);
                 xcor = 1;
                 ycor = 1;
                 cursor;
@@ -586,15 +581,12 @@ string cmd_search(vector<string> cw_vect) {
     string fpath;
     st1 = cmd_copy(cw_vect);
     vector<string> cmdvec;
-//    fpath = create_fpath(cw_vect[1],"");
     fpath = app_home + trimpath(cw_vect[1]);
     struct stat fd;
     if(stat(fpath.c_str(),&fd)==-1) {
-//        if ((fd.st_mode & S_IFMT) & S_IFDIR) {
         string srchdir = app_home.substr(0,app_home.length()-1);
         ret = cmd_search_dir(srchdir,trimpath(cw_vect[1]));
-        return ret;
-//        }
+        return ret; 
     }
     else {
         ret = "True";
